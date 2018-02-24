@@ -30,5 +30,4 @@ http://localhost:18080/
 
 ### Mail Catcher
 
-メールブラウザ
 http://localhost:1080/
