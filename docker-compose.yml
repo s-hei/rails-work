@@ -1,0 +1,83 @@
+version: '2'
+services:
+  haproxy:
+    image: haproxy:1.6.9-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+      - ./ssl:/etc/haproxy/ssl:ro
+    depends_on:
+      - nginx
+    links:
+      - nginx
+    container_name: rails_haproxy
+
+  nginx:
+    image: nginx:1.11-alpine
+    volumes:
+      - ./docker/nginx/conf.d:/etc/nginx/conf.d:ro
+    volumes_from:
+      - web
+    depends_on:
+      - web
+    links:
+      - web
+    container_name: rails_nginx
+
+  mariadb:
+    image: mariadb:10.2.13
+    volumes:
+      - ./docker/mariadb/conf.d:/etc/mysql/conf.d:ro
+      - ./docker/mariadb/init:/docker-entrypoint-initdb.d:ro
+      - mysql-data:/var/lib/mysql
+      - ~/zoneinfo/Asia/Tokyo:/etc/localtime:ro
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+    container_name: rails_mariadb
+    ports:
+      - "3333:3306"
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/web/Dockerfile
+      args:
+        app_dir: ./src
+    volumes:
+      - ./docker/web/bin:/work/bin:ro
+      - ./src:/work/web
+      - bundle-data:/bundle
+    command: sh /work/bin/run.sh
+    depends_on:
+      - mariadb
+      - mailcatcher
+    links:
+      - mariadb
+      - mailcatcher
+
+
+  mailcatcher:
+    image: schickling/mailcatcher
+    ports:
+      - "1080:1080"
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    ports:
+      - "18080:80"
+    depends_on:
+      - mariadb
+    links:
+      - mariadb
+    environment:
+      PMA_HOST: mariadb
+      PMA_USER: root
+      PMA_PASSWORD: root
+
+volumes:
+  mysql-data:
+    driver: local
+  bundle-data:
+    driver: local
